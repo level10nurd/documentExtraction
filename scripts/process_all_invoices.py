@@ -8,9 +8,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from config import Config  # noqa: E402
-from exporters import CSVExporter  # noqa: E402
+from exporters import CSVExporter, SummaryGenerator  # noqa: E402
 from processors.batch_processor import BatchProcessor  # noqa: E402
 from utils.logging_config import setup_logging  # noqa: E402
+import time  # noqa: E402
 
 # Setup logging
 setup_logging()
@@ -35,8 +36,21 @@ def main():
         print("Please check your environments.json configuration")
         sys.exit(1)
 
+    # Create single output directory for this run
+    from datetime import datetime
+    combined_run_dir = Config.OUTPUT_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    combined_run_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Output Directory: {combined_run_dir}")
+    print()
+
     # Initialize batch processor
-    processor = BatchProcessor(num_workers=8)
+    processor = BatchProcessor(num_workers=8, output_dir=Config.OUTPUT_DIR)
+    # Set the run directory explicitly to prevent creating subdirectories
+    processor.run_dir = combined_run_dir
+
+    # Start timing
+    start_time = time.time()
 
     # Get all vendor directories
     vendor_dirs = Config.get_all_vendor_directories()
@@ -111,17 +125,10 @@ def main():
         print("⚠️  No invoices to export!")
         return
 
-    # Export to CSV (use the last processor's run directory for combined output)
-    # Note: Each vendor gets its own run directory, but we'll create a final combined one
-    from datetime import datetime
-    combined_run_dir = Config.OUTPUT_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_combined"
-    combined_run_dir.mkdir(parents=True, exist_ok=True)
-
+    # Export to CSV (using the shared output directory)
     print("=" * 80)
     print("EXPORTING TO CSV")
     print("=" * 80)
-    print()
-    print(f"Output Directory: {combined_run_dir}")
     print()
 
     # Export normalized format (separate files for invoices and line items)
@@ -154,13 +161,35 @@ def main():
     for file_type, file_path in denorm_files.items():
         print(f"  ✅ {file_type:12s}: {file_path}")
 
+    # Generate batch summary report
     print()
+    print("=" * 80)
+    print("GENERATING BATCH SUMMARY")
+    print("=" * 80)
+    print()
+
+    end_time = time.time()
+    total_processing_time = end_time - start_time
+
+    summary_gen = SummaryGenerator(output_dir=combined_run_dir)
+    summary_file = summary_gen.generate_summary(
+        batch_results=all_results,
+        all_invoices=all_invoices,
+        processing_time=total_processing_time,
+    )
+
+    print(f"  ✅ Batch Summary: {summary_file.name}")
+    print()
+
     print("=" * 80)
     print("COMPLETE! 🎉")
     print("=" * 80)
     print()
     print(f"Successfully processed and exported {len(all_invoices)} invoices")
-    print(f"Check the directory for your results: {combined_run_dir}")
+    print(f"Total processing time: {total_processing_time:.1f}s")
+    print()
+    print(f"📁 All outputs saved to: {combined_run_dir}")
+    print(f"📊 Review batch summary: {summary_file.name}")
     print()
 
 

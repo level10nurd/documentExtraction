@@ -89,8 +89,11 @@ class BatchProcessor:
         if not directory.exists():
             raise ValueError(f"Directory does not exist: {directory}")
 
-        # Create timestamped run directory
-        self.run_dir = self._create_run_directory()
+        # Create timestamped run directory (or reuse existing one)
+        if self.run_dir is None:
+            self.run_dir = self._create_run_directory()
+        else:
+            logger.info(f"Reusing run directory: {self.run_dir}")
 
         # Get list of files to process
         pdf_files = sorted(directory.glob(file_pattern))

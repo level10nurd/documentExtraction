@@ -255,9 +255,12 @@ The mapping between vendor types and directories is defined in `models/vendor.py
 
 **Phase 3 - Remaining Work:**
 - Duplicate detection utility
-- CSV exporter (normalized format)
 - Main CLI interface
 - Data validation utilities
+
+**Phase 3 - Completed:**
+- ✅ CSV exporter (normalized and denormalized formats)
+- ✅ Batch summary generator (comprehensive markdown reports)
 
 ## Testing
 
