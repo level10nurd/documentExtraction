@@ -1,13 +1,13 @@
 [project]
 name = "documentextraction"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automated invoice data extraction system that processes PDF invoices from multiple vendors and extracts structured data for analytics"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "docling>=2.66.0",
-    "pydantic>=2.12.5",
-    "python-dateutil>=2.9.0.post0",
-    "ruff>=0.14.10",
-    "tqdm>=4.67.1",
+  "docling>=2.66.0",
+  "pydantic>=2.12.5",
+  "python-dateutil>=2.9.0.post0",
+  "ruff>=0.14.10",
+  "tqdm>=4.67.1",
 ]

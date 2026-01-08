@@ -38,3 +38,6 @@ vendor_manifest*.json
 *.key
 *.pem
 credentials.json
+
+# User-specific environment configuration
+environments.json

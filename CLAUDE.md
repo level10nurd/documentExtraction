@@ -11,7 +11,7 @@ This is an invoice data extraction project designed to process hundreds of PDF i
 - Line items: quantity, item, description, price each, amount
 - Subtotal, sales tax, total
 
-**Source data location:** `/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills`
+**Source data location:** Configured per-environment in `environments.json` (see Configuration section below)
 
 **Vendor Organization:** Invoices are organized by vendor in subdirectories under `Bills/`:
 ```
@@ -44,6 +44,109 @@ Bills/
 - pydantic - Data validation and models
 - python-dateutil - Flexible date parsing
 - tqdm - Progress bars for batch processing
+
+## Environment Configuration
+
+The project supports multiple environments to handle different source locations across computers. This is configured via `environments.json`.
+
+### Setup
+
+1. **Create/edit `environments.json`** in the project root:
+
+```json
+{
+  "environments": {
+    "work_mac": {
+      "description": "Work MacBook Pro",
+      "source_dir": "/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 4
+    },
+    "home_laptop": {
+      "description": "Home Laptop",
+      "source_dir": "/home/dalton/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 8
+    }
+  },
+  "default": "work_mac"
+}
+```
+
+2. **Check your environment** before running scripts:
+
+```bash
+uv run python scripts/check_environment.py
+```
+
+3. **List all environments**:
+
+```bash
+uv run python scripts/check_environment.py --list
+```
+
+### Usage in Code
+
+**Method 1: Use default environment** (recommended):
+
+```python
+from config import Config
+
+# Load default environment from environments.json
+Config.load_environment()
+
+# Now Config.SOURCE_DIR points to correct location
+print(Config.SOURCE_DIR)
+```
+
+**Method 2: Specify environment explicitly**:
+
+```python
+from config import Config
+
+# Load specific environment
+Config.load_environment("home_laptop")
+
+# Access configured paths
+reflex_dir = Config.SOURCE_DIR / "Reflex"
+```
+
+**Method 3: Use environment variable** (overrides default):
+
+```bash
+# Set environment variable
+export INVOICE_ENV=home_laptop
+
+# Run script (will use home_laptop config)
+uv run python tests/test_reflex_batch.py
+```
+
+**Method 4: Override with environment variables** (highest priority):
+
+```bash
+# Override source directory completely
+export INVOICE_SOURCE_DIR="/custom/path/to/Bills"
+uv run python tests/test_reflex_batch.py
+```
+
+### Priority Order
+
+Configuration values are determined in this order (highest to lowest priority):
+
+1. Environment variables (`INVOICE_SOURCE_DIR`, `OUTPUT_DIR`, etc.)
+2. Specified environment in `Config.load_environment("env_name")`
+3. `INVOICE_ENV` environment variable
+4. Default environment from `environments.json`
+5. Hardcoded defaults in `config.py`
+
+### Adding New Computers
+
+To use the project on a new computer:
+
+1. Edit `environments.json` and add your computer's configuration
+2. Set appropriate `source_dir` for that computer
+3. Optionally set it as the default
+4. Run `check_environment.py` to verify
 
 ## Document Processing
 

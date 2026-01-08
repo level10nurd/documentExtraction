@@ -1,149 +1,107 @@
-"""Test script to find and extract OMICO invoices."""
+"""Test script for Omico extraction improvements."""
 
-import os
-import sys
 from pathlib import Path
+from docling.document_converter import DocumentConverter
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import PdfFormatOption
 
-# Add project root to path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# Import directly to avoid circular import
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
 
-from extractors.omico import OmicoExtractor  # noqa: E402
-from processors.document_processor import DocumentProcessor  # noqa: E402
+# Import models directly
+import importlib.util
 
-
-def find_omico_invoice(bills_dir: str, max_files: int = 50) -> str | None:
-    """
-    Search through PDF files to find an OMICO invoice.
-
-    Args:
-        bills_dir: Directory containing PDF invoices
-        max_files: Maximum number of files to search
-
-    Returns:
-        Path to OMICO invoice or None if not found
-    """
-    processor = DocumentProcessor()
-
-    print(f"Searching for OMICO invoice in {bills_dir}...")
-    print(f"Will check up to {max_files} files\n")
-
-    files = sorted([f for f in os.listdir(bills_dir) if f.endswith(".pdf")])
-
-    for i, filename in enumerate(files[:max_files]):
-        if i > 0 and i % 10 == 0:
-            print(f"Checked {i} files...")
-
-        try:
-            path = os.path.join(bills_dir, filename)
-            doc_key = processor.convert_document(path)
-            markdown = processor.get_document_markdown(doc_key, max_size=2000)
-
-            # Check for OMICO identifiers
-            if any(
-                term in markdown.upper()
-                for term in ["OMICO", "2025 RAGU DRIVE", "OWENSBORO"]
-            ):
-                print(f"\n✓ Found OMICO invoice: {filename}")
-                return path
-
-        except Exception as e:
-            print(f"✗ Error processing {filename}: {e}")
-            continue
-
-    print(f"\n✗ No OMICO invoice found in first {max_files} files")
-    return None
+# Load the omico extractor module directly to avoid circular imports
+spec = importlib.util.spec_from_file_location(
+    "omico_extractor",
+    Path(__file__).parent / "extractors" / "omico.py"
+)
+omico_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(omico_module)
+OmicoExtractor = omico_module.OmicoExtractor
 
 
-def test_omico_extraction(pdf_path: str) -> None:
-    """
-    Test OMICO extractor with a specific invoice.
+class SimpleProcessor:
+    """Simple processor for testing."""
 
-    Args:
-        pdf_path: Path to OMICO PDF invoice
-    """
-    print(f"\n{'=' * 60}")
-    print("Testing OMICO Extractor")
-    print(f"{'=' * 60}\n")
-    print(f"File: {Path(pdf_path).name}\n")
-
-    # Initialize
-    processor = DocumentProcessor()
-    extractor = OmicoExtractor(processor)
-
-    # Process invoice
-    print("Converting document...")
-    doc_key = processor.convert_document(pdf_path)
-
-    print("Extracting markdown...")
-    markdown = processor.get_document_markdown(doc_key)
-
-    print("Extracting invoice data...\n")
-    invoice = extractor.extract(doc_key, markdown, Path(pdf_path).name)
-
-    # Display results
-    print(f"{'=' * 60}")
-    print("EXTRACTION RESULTS")
-    print(f"{'=' * 60}\n")
-
-    print(f"Vendor: {invoice.vendor}")
-    print(f"Invoice Number: {invoice.invoice_number}")
-    print(f"Invoice Date: {invoice.invoice_date}")
-    print(f"PO Number: {invoice.po_number}")
-    print(f"Subtotal: ${invoice.subtotal}")
-    print(f"Sales Tax: ${invoice.sales_tax}")
-    print(f"Total: ${invoice.total}")
-    print(f"Confidence: {invoice.extraction_confidence:.2%}")
-
-    print(f"\nLine Items ({len(invoice.line_items)}):")
-    for i, item in enumerate(invoice.line_items, 1):
-        print(f"  {i}. {item.description}")
-        print(
-            f"     Qty: {item.quantity}, Price: ${item.price_each}, Amount: ${item.amount}"
+    def __init__(self):
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = True
+        self.converter = DocumentConverter(
+            format_options={"pdf": PdfFormatOption(pipeline_options=pipeline_options)}
         )
-        if item.item_code:
-            print(f"     Code: {item.item_code}")
+        self.document_cache = {}
 
-    if invoice.extraction_errors:
-        print(f"\nErrors ({len(invoice.extraction_errors)}):")
-        for error in invoice.extraction_errors:
-            print(f"  - {error}")
+    def convert_document(self, pdf_path: str) -> str:
+        pdf_path_str = str(Path(pdf_path).resolve())
+        if pdf_path_str in self.document_cache:
+            return pdf_path_str
 
-    print(f"\n{'=' * 60}")
-    print("JSON OUTPUT")
-    print(f"{'=' * 60}\n")
-    print(invoice.model_dump_json(indent=2))
+        result = self.converter.convert(pdf_path_str)
+        self.document_cache[pdf_path_str] = result.document
+        return pdf_path_str
+
+    def get_document_markdown(self, doc_key: str, max_size: int | None = None) -> str:
+        doc = self.document_cache[doc_key]
+        markdown = doc.export_to_markdown()
+        if max_size and len(markdown) > max_size:
+            return markdown[:max_size]
+        return markdown
 
 
 def main():
-    """Main test function."""
-    bills_dir = "/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills"
+    """Test Omico extraction on previously failing invoices."""
+    processor = SimpleProcessor()
+    extractor = OmicoExtractor(processor)
 
-    if not os.path.exists(bills_dir):
-        print(f"Error: Directory not found: {bills_dir}")
-        return
+    # Test invoices that were failing
+    test_files = [
+        "Bill_95781-_95781-.pdf",
+        "Bill_95933_95933.pdf",
+        "Bill_95954_95954.pdf",
+        "Bill_95998_95998.pdf",
+        "Bill_96043_96043.pdf",
+        "Bill_96386_96386.pdf",
+        "Bill_96283_96283.pdf",
+    ]
 
-    # Try to find an OMICO invoice
-    omico_path = find_omico_invoice(bills_dir, max_files=100)
+    base_path = Path(
+        "/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills/Omico"
+    )
 
-    if not omico_path:
-        print("\nNo OMICO invoice found. Please provide a sample invoice path.")
-        print(
-            "Usage: uv run python test_omico_extraction.py [path_to_omico_invoice.pdf]"
-        )
-        return
+    print("Testing Omico extraction improvements:\n")
+    print(f"{'File':<35} {'Status':<8} {'Items':<6} {'Total':<12} {'Errors'}")
+    print("-" * 100)
 
-    # Test extraction
-    test_omico_extraction(omico_path)
+    success_count = 0
+    for filename in test_files:
+        pdf_path = base_path / filename
+        if not pdf_path.exists():
+            print(f"{filename:<35} {'SKIP':<8} File not found")
+            continue
+
+        try:
+            doc_key = processor.convert_document(str(pdf_path))
+            markdown = processor.get_document_markdown(doc_key)
+            invoice = extractor.extract(doc_key, markdown, filename)
+
+            status = "OK" if not invoice.extraction_errors else "ERROR"
+            if not invoice.extraction_errors:
+                success_count += 1
+
+            items = len(invoice.line_items)
+            total = f"${invoice.total:>10.2f}" if invoice.total else "N/A"
+            errors = ", ".join(invoice.extraction_errors) if invoice.extraction_errors else ""
+
+            print(f"{filename:<35} {status:<8} {items:<6} {total:<12} {errors}")
+
+        except Exception as e:
+            print(f"{filename:<35} {'FAIL':<8} Exception: {str(e)[:40]}")
+
+    print("-" * 100)
+    print(f"\nSuccessfully extracted: {success_count}/{len(test_files)}")
 
 
 if __name__ == "__main__":
-    # Allow command-line invoice path override
-    if len(sys.argv) > 1:
-        invoice_path = sys.argv[1]
-        if os.path.exists(invoice_path):
-            test_omico_extraction(invoice_path)
-        else:
-            print(f"Error: File not found: {invoice_path}")
-    else:
-        main()
+    main()

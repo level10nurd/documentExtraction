@@ -1,0 +1,23 @@
+{
+  "environments": {
+    "example_mac": {
+      "description": "Example macOS Configuration",
+      "source_dir": "/Users/username/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 4
+    },
+    "example_linux": {
+      "description": "Example Linux Configuration",
+      "source_dir": "/home/username/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 8
+    },
+    "example_windows": {
+      "description": "Example Windows Configuration",
+      "source_dir": "C:/Users/username/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 4
+    }
+  },
+  "default": "example_mac"
+}

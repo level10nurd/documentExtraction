@@ -18,14 +18,25 @@ setup_logging()
 
 def main():
     """Process all invoices from all vendor directories."""
-    print()
-    print("=" * 80)
-    print("PROCESSING ALL INVOICES")
-    print("=" * 80)
-    print()
+    # Load environment configuration
+    try:
+        env_name = Config.load_environment()
+        print()
+        print("=" * 80)
+        print("PROCESSING ALL INVOICES")
+        print("=" * 80)
+        print()
+        print(f"Environment:      {env_name}")
+        print(f"Source Directory: {Config.SOURCE_DIR}")
+        print(f"Output Directory: {Config.OUTPUT_DIR}")
+        print()
+    except Exception as e:
+        print(f"❌ Error loading environment: {e}")
+        print("Please check your environments.json configuration")
+        sys.exit(1)
 
     # Initialize batch processor
-    processor = BatchProcessor(num_workers=4)
+    processor = BatchProcessor(num_workers=8)
 
     # Get all vendor directories
     vendor_dirs = Config.get_all_vendor_directories()
@@ -75,8 +86,17 @@ def main():
     total_failed = total_processed - total_successful
 
     print(f"Total Files Processed: {total_processed}")
-    print(f"Successful:           {total_successful} ({total_successful/total_processed*100:.1f}%)")
-    print(f"Failed:               {total_failed} ({total_failed/total_processed*100:.1f}%)")
+
+    if total_processed > 0:
+        print(f"Successful:           {total_successful} ({total_successful/total_processed*100:.1f}%)")
+        print(f"Failed:               {total_failed} ({total_failed/total_processed*100:.1f}%)")
+    else:
+        print(f"Successful:           {total_successful}")
+        print(f"Failed:               {total_failed}")
+        print()
+        print("⚠️  No files were processed. Check vendor directories.")
+        sys.exit(1)
+
     print()
 
     # Collect all successful invoices

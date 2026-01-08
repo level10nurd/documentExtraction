@@ -9,7 +9,7 @@ This system processes hundreds of PDF invoices from 4-5 different vendor formats
 - **Line items**: Quantity, item code, description, price each, amount
 - **Totals**: Subtotal, sales tax, total
 
-**Source invoices**: `/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills`
+**Source invoices**: Configured per-environment (see Configuration section)
 
 **Vendor Organization**: Invoices are organized by vendor in subdirectories under `Bills/`:
 ```
@@ -66,6 +66,95 @@ uv add pydantic python-dateutil tqdm
 ```
 
 **Requirements**: Python 3.11+
+
+## Configuration
+
+The project supports multiple environments for different computers. Configure your source directory location in `environments.json`.
+
+### Initial Setup
+
+1. **Create `environments.json`** in the project root (if it doesn't exist):
+
+```json
+{
+  "environments": {
+    "my_computer": {
+      "description": "My Computer",
+      "source_dir": "/path/to/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 4
+    }
+  },
+  "default": "my_computer"
+}
+```
+
+2. **Verify your configuration**:
+
+```bash
+uv run python scripts/check_environment.py
+```
+
+This will show:
+- Which environment is loaded (default or from `INVOICE_ENV`)
+- The source directory path
+- Whether the directory exists
+
+3. **List all configured environments**:
+
+```bash
+uv run python scripts/check_environment.py --list
+```
+
+### Using Different Computers
+
+Add an environment for each computer you use:
+
+```json
+{
+  "environments": {
+    "work_mac": {
+      "description": "Work MacBook Pro",
+      "source_dir": "/Users/dalton/Library/CloudStorage/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 4
+    },
+    "home_linux": {
+      "description": "Home Linux Desktop",
+      "source_dir": "/home/dalton/Dropbox/02_clients/VoChill/[01]-Accounting/AP/Bills",
+      "output_dir": "output",
+      "max_workers": 8
+    }
+  },
+  "default": "work_mac"
+}
+```
+
+### Switching Environments
+
+**Option 1: Change default** in `environments.json`:
+```json
+"default": "home_linux"
+```
+
+**Option 2: Use environment variable**:
+```bash
+export INVOICE_ENV=home_linux
+uv run python tests/test_reflex_batch.py
+```
+
+**Option 3: One-time override**:
+```bash
+INVOICE_ENV=work_mac uv run python tests/test_reflex_batch.py
+```
+
+### Environment Priority
+
+Configuration is resolved in this order (highest priority first):
+1. Environment variables (`INVOICE_SOURCE_DIR`, etc.)
+2. `INVOICE_ENV` environment variable
+3. Default from `environments.json`
+4. Hardcoded defaults in `config.py`
 
 ## Quick Start
 

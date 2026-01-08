@@ -1,0 +1,22 @@
+# Workflow Status - Quick Flow Mode
+# Project: documentExtraction
+
+generated: "2026-01-08"
+project: "documentExtraction"
+project_type: "invoice_data_extraction"
+selected_track: "quick-flow"
+field_type: "brownfield"
+workflow_path: "quick-flow-brownfield"
+workflow_status: []
+
+# Detected Artifacts
+existing_codebase: true
+has_tests: true
+has_git_repo: true
+
+# Quick Flow Note
+# For minimal planning and rapid development, use the quick-flow-solo-dev agent
+# This workflow is optimized for:
+# - Simple features and bug fixes
+# - Rapid prototyping
+# - Getting straight to code
