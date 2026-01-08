@@ -347,6 +347,7 @@ class ReflexMedicalExtractor(BaseExtractor):
         amounts = re.findall(r"[\d,]+\.\d+", amounts_str)
 
         # Rate columns are before amounts - smaller decimal numbers (unit prices)
+        # Sometimes all items share one rate
         rates = []
         if len(parts) >= 3:
             # Check parts from right to left, before the amount column
@@ -366,9 +367,21 @@ class ReflexMedicalExtractor(BaseExtractor):
                                 break
                         except (ValueError, TypeError):
                             pass
+                    # Or if we found exactly ONE rate, it might be shared across all items
+                    elif len(found_rates) == 1:
+                        try:
+                            numeric_rate = float(found_rates[0].replace(',', ''))
+                            if numeric_rate < 1000:  # Looks like a unit price
+                                # Use same rate for all items
+                                rates = found_rates * len(item_codes)
+                                logger.debug(f"Using shared rate {found_rates[0]} for all {len(item_codes)} items")
+                                break
+                        except (ValueError, TypeError):
+                            pass
 
         # Quantity columns are before rates
         # Quantities can have commas (e.g., "1,257 2,550" or "224 268")
+        # Sometimes all items share one quantity
         quantities = []
         for part_idx in range(2, len(parts)):  # Skip codes and first description
             part = parts[part_idx]
@@ -377,8 +390,18 @@ class ReflexMedicalExtractor(BaseExtractor):
             found_qty = re.findall(r"\b[\d,]+\b", part)
             # Filter out anything with decimals (those are prices/amounts)
             found_qty = [q for q in found_qty if "." not in q]
+            # Filter out small numbers (< 10) that might be from item codes like "07"
+            found_qty = [q for q in found_qty if int(q.replace(',', '')) >= 10]
+
+            # Check if we found the right number of quantities
             if len(found_qty) == len(item_codes):
                 quantities = found_qty
+                break
+            # Or if we found exactly ONE quantity, it might be shared across all items
+            elif len(found_qty) == 1 and int(found_qty[0].replace(',', '')) >= 100:
+                # Use same quantity for all items
+                quantities = found_qty * len(item_codes)
+                logger.debug(f"Using shared quantity {found_qty[0]} for all {len(item_codes)} items")
                 break
 
         # Create line items (one per item code)
